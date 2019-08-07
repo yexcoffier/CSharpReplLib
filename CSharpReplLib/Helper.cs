@@ -39,6 +39,11 @@ namespace CSharpReplLib
             }
         }
 
+        internal static IEnumerable<T> Yield<T>(this T item)
+        {
+            yield return item;
+        }
+
         internal static IReadOnlyDictionary<TKey, TValue> ToDictionaryLocked<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, object lockDictionary)
         {
             lock (lockDictionary)

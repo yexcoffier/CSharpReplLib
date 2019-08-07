@@ -14,7 +14,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
-// add script feature in your software
+
 namespace CSharpReplLib
 {
     public class ScriptHandler
@@ -193,18 +193,70 @@ namespace CSharpReplLib
 
     public static class ScriptViewModelExtension
     {
+        /// <summary>
+        /// Add assemblies to use with the ScriptHandler.
+        /// Typically : typeof(string).Assembly, myInstance.GetType().Assembly
+        /// </summary>
+        /// <param name="model"></param>
+        /// <param name="references"></param>
+        /// <returns></returns>
         public static ScriptHandler AddReferences(this ScriptHandler model, params Assembly[] references)
         {
-            model._references.AddRange(references.Except(model._references).Distinct().ToArray());
+            model._references.AddRange(
+                references
+                .Except(model._references)
+                .Distinct()
+                .ToArray()
+            );
             return model;
         }
 
+        /// <summary>
+        /// Add assembly and optionally the referenced assembly. Can be use calling AddReferences(Assembly.GetExecutingAssembly(), true),
+        /// this will take the full pack of the currently executing software assemblies
+        /// </summary>
+        /// <param name="model"></param>
+        /// <param name="reference"></param>
+        /// <param name="includeReferencedAssemblies"></param>
+        /// <returns></returns>
+        public static ScriptHandler AddReferences(this ScriptHandler model, Assembly reference, bool includeReferencedAssemblies = false)
+        {
+            model._references.AddRange(
+                (includeReferencedAssemblies
+                    ? reference.GetReferencedAssemblies()
+                        .Select(a => Assembly.Load(a))
+                    : reference.Yield())
+                .Except(model._references)
+                .Distinct()
+                .ToArray()
+            );
+            return model;
+        }
+
+        /// <summary>
+        /// Namespace to use "System", "System.IO", ...
+        /// </summary>
+        /// <param name="model"></param>
+        /// <param name="usings"></param>
+        /// <returns></returns>
         public static ScriptHandler AddUsings(this ScriptHandler model, params string[] usings)
         {
-            model._usings.AddRange(usings.Except(model._usings).Distinct().ToArray());
+            model._usings.AddRange(
+                usings
+                .Except(model._usings)
+                .Distinct()
+                .ToArray()
+            );
             return model;
         }
 
+        /// <summary>
+        /// Add global instances to the script
+        /// Typically : (nameof(MyInstance), MyInstance), ("SomeString", "Hello World"), ...
+        /// </summary>
+        /// <param name="model"></param>
+        /// <param name="globals"></param>
+        /// <returns></returns>
         public static ScriptHandler AddGlobals(this ScriptHandler model, params (string name, object value)[] globals)
         {
             if (globals == null)
