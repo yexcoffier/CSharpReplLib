@@ -2,31 +2,36 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:CSharpReplLib.WpfSample"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        Title="ReplWindow"
+        Width="800"
+        Height="450"
         Closed="Window_Closed"
         Loaded="Window_Loaded"
-        mc:Ignorable="d"
-        Title="ReplWindow" Height="450" Width="800">
-    
+        mc:Ignorable="d">
+
     <Grid Background="#1e1e1e">
-        
+
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <Border Padding="5" BorderBrush="Gray" BorderThickness="0,1">
-            <Button HorizontalAlignment="Right" Padding="5"
-				    Click="OpenVsCode_Click"
-				    Content="Open VS Code" />
+        <Border Padding="5"
+                BorderBrush="Gray"
+                BorderThickness="0,1">
+            <Button Padding="5"
+                    HorizontalAlignment="Right"
+                    Click="OpenVsCode_Click"
+                    Content="Open VS Code" />
         </Border>
 
         <ScrollViewer Grid.Row="1"
-					  HorizontalAlignment="Stretch"
-					  HorizontalScrollBarVisibility="Auto"
-					  PreviewKeyDown="ScrollViewer_PreviewKeyDown"
-					  VerticalScrollBarVisibility="Auto">
+                      HorizontalAlignment="Stretch"
+                      HorizontalScrollBarVisibility="Auto"
+                      PreviewKeyDown="ScrollViewer_PreviewKeyDown"
+                      VerticalScrollBarVisibility="Auto">
             <Grid Background="#1e1e1e">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -35,45 +40,45 @@
 
                 <RichTextBox x:Name="HistoryText"
                              Margin="0,14,0,0"
-                             Visibility="Collapsed"
-							 HorizontalAlignment="Stretch"
-							 Background="#1e1e1e"
-							 BorderBrush="Transparent"
-							 BorderThickness="0"
-							 FontFamily="Consolas"
-							 Foreground="White"
-							 IsReadOnly="True">
-                    
+                             HorizontalAlignment="Stretch"
+                             Background="#1e1e1e"
+                             BorderBrush="Transparent"
+                             BorderThickness="0"
+                             FontFamily="Consolas"
+                             Foreground="White"
+                             IsReadOnly="True"
+                             Visibility="Collapsed">
+
                     <FlowDocument PageWidth="{Binding RelativeSource={RelativeSource AncestorType=RichTextBox}, Path=ActualWidth}" />
                 </RichTextBox>
 
                 <Grid Grid.Row="1"
-					  Margin="5,14,0,0"
-					  HorizontalAlignment="Stretch"
-					  VerticalAlignment="Top">
+                      Margin="5,14,0,0"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Top">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
 
                     <TextBlock Grid.Column="0"
-							 FontFamily="Consolas"
-							 Foreground="White"
-                             Background="#1e1e1e"
-							 IsHitTestVisible="False"
-							 Text="&gt; " />
+                               Background="#1e1e1e"
+                               FontFamily="Consolas"
+                               Foreground="White"
+                               IsHitTestVisible="False"
+                               Text="&gt; " />
 
                     <TextBox x:Name="ScriptTextBox"
-							 Grid.Column="1"
-							 MinWidth="100"
+                             Grid.Column="1"
+                             MinWidth="100"
                              Margin="-2,0,0,0"
-							 HorizontalAlignment="Stretch"
-							 Background="#1e1e1e"
-							 BorderBrush="Transparent"
-							 BorderThickness="0"
-							 FontFamily="Consolas"
-							 Foreground="White"
-							 PreviewKeyDown="ScriptTextBox_KeyDown" />
+                             HorizontalAlignment="Stretch"
+                             Background="#1e1e1e"
+                             BorderBrush="Transparent"
+                             BorderThickness="0"
+                             FontFamily="Consolas"
+                             Foreground="White"
+                             PreviewKeyDown="ScriptTextBox_KeyDown" />
                 </Grid>
 
             </Grid>
