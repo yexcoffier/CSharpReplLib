@@ -2,6 +2,14 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+    <Authors>Yannick Excoffier</Authors>
+    <Description>Extension to CSharpReplLib to edit the script inside a VIsual Studio Code window</Description>
+    <Copyright>Copyright © 2019 Yannick Excoffier</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/yexcoffier/CSharpReplLib</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/yexcoffier/CSharpReplLib</RepositoryUrl>
+    <Version>1.0.1</Version>
   </PropertyGroup>
 
   <ItemGroup>

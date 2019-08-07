@@ -2,6 +2,16 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+    <Authors>Yannick Excoffier</Authors>
+    <Company />
+    <Description>Library to easily add a C# REPL feature</Description>
+    <Copyright>Copyright © 2019 Yannick Excoffier</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/yexcoffier/CSharpReplLib</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/yexcoffier/CSharpReplLib</RepositoryUrl>
+    <PackageReleaseNotes>Intial release</PackageReleaseNotes>
+    <Version>1.0.1</Version>
   </PropertyGroup>
 
   <ItemGroup>
