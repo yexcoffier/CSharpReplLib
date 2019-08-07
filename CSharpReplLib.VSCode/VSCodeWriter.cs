@@ -202,7 +202,7 @@ namespace CSharpReplLib.VSCode
 
             //Results.Add(new ScriptResult { Result = "> Execute script from VS code...", IsError = false });
 
-            await _scriptHandler.ExecuteCode(script + "\nExecuteScript()", this);
+            await _scriptHandler.ExecuteCode(script + "\nExecuteScript()", sender: this);
             //await ExecuteCode("ExecuteScript()", ScriptType.VSCode);
         }
 

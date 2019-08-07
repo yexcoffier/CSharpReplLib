@@ -28,17 +28,17 @@ namespace CSharpReplLib.WpfSample
 
             
             _scriptHandler = new ScriptHandler(async func => await Dispatcher.InvokeAsync(func))
-                .WithGlobals
+                .AddGlobals
                 (
                     ("CurrentWindow", this)
                 )
-                .WithReferences
+                .AddReferences
                 (
                     Assembly.GetExecutingAssembly(),
                     typeof(Application).Assembly,
                     typeof(Brushes).Assembly
                 )
-                .WithUsings
+                .AddUsings
                 (
                     "CSharpReplLib.WpfSample",
                     "System",
