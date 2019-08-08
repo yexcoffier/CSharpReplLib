@@ -1,4 +1,4 @@
-using Microsoft.CodeAnalysis;
+﻿using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
 using Microsoft.CodeAnalysis.Scripting.Hosting;
@@ -238,6 +238,7 @@ namespace CSharpReplLib
                 (includeReferencedAssemblies
                     ? reference.GetReferencedAssemblies()
                         .Select(a => Assembly.Load(a))
+                        .Concat(reference.Yield())
                     : reference.Yield())
                 .Except(scriptHandler._references)
                 .Distinct()
