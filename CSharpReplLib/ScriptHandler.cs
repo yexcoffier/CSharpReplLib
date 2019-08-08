@@ -49,8 +49,8 @@ namespace CSharpReplLib
         internal object _lockGlobals = new object();
         internal readonly Dictionary<string, object> _globals = new Dictionary<string, object>();
 
-        private ScriptState<object> _scriptState;
-        private AsyncLock _scriptStateLock = new AsyncLock();
+        internal ScriptState<object> _scriptState;
+        internal AsyncLock _scriptStateLock = new AsyncLock();
         
 
         private Func<Func<Task>, Task> _executionContext = null;
@@ -203,6 +203,12 @@ namespace CSharpReplLib
         /// <returns></returns>
         public static ScriptHandler AddReferences(this ScriptHandler model, params Assembly[] references)
         {
+            using (model._scriptStateLock.Lock())
+            {
+                if (model._scriptState != null)
+                    throw new NotSupportedException("Cannot add reference after script was already initialized");
+            }
+
             model._references.AddRange(
                 references
                 .Except(model._references)
@@ -216,60 +222,78 @@ namespace CSharpReplLib
         /// Add assembly and optionally the referenced assembly. Can be use calling AddReferences(Assembly.GetExecutingAssembly(), true),
         /// this will take the full pack of the currently executing software assemblies
         /// </summary>
-        /// <param name="model"></param>
+        /// <param name="scriptHandler"></param>
         /// <param name="reference"></param>
         /// <param name="includeReferencedAssemblies"></param>
         /// <returns></returns>
-        public static ScriptHandler AddReferences(this ScriptHandler model, Assembly reference, bool includeReferencedAssemblies = false)
+        public static ScriptHandler AddReferences(this ScriptHandler scriptHandler, Assembly reference, bool includeReferencedAssemblies = false)
         {
-            model._references.AddRange(
+            using (scriptHandler._scriptStateLock.Lock())
+            {
+                if (scriptHandler._scriptState != null)
+                    throw new NotSupportedException("Cannot add reference after script was already initialized");
+            }
+
+            scriptHandler._references.AddRange(
                 (includeReferencedAssemblies
                     ? reference.GetReferencedAssemblies()
                         .Select(a => Assembly.Load(a))
                     : reference.Yield())
-                .Except(model._references)
+                .Except(scriptHandler._references)
                 .Distinct()
                 .ToArray()
             );
-            return model;
+            return scriptHandler;
         }
 
         /// <summary>
         /// Namespace to use "System", "System.IO", ...
         /// </summary>
-        /// <param name="model"></param>
+        /// <param name="scriptHandler"></param>
         /// <param name="usings"></param>
         /// <returns></returns>
-        public static ScriptHandler AddUsings(this ScriptHandler model, params string[] usings)
+        public static ScriptHandler AddUsings(this ScriptHandler scriptHandler, params string[] usings)
         {
-            model._usings.AddRange(
+            using (scriptHandler._scriptStateLock.Lock())
+            {
+                if (scriptHandler._scriptState != null)
+                    throw new NotSupportedException($"Cannot add usings after script was already initialized, call ExecuteCode(\"using {usings.FirstOrDefault()};\") instead");
+            }
+
+            scriptHandler._usings.AddRange(
                 usings
-                .Except(model._usings)
+                .Except(scriptHandler._usings)
                 .Distinct()
                 .ToArray()
             );
-            return model;
+            return scriptHandler;
         }
 
         /// <summary>
         /// Add global instances to the script
         /// Typically : (nameof(MyInstance), MyInstance), ("SomeString", "Hello World"), ...
         /// </summary>
-        /// <param name="model"></param>
+        /// <param name="scriptHandler"></param>
         /// <param name="globals"></param>
         /// <returns></returns>
-        public static ScriptHandler AddGlobals(this ScriptHandler model, params (string name, object value)[] globals)
+        public static ScriptHandler AddGlobals(this ScriptHandler scriptHandler, params (string name, object value)[] globals)
         {
+            using (scriptHandler._scriptStateLock.Lock())
+            {
+                if (scriptHandler._scriptState != null)
+                    throw new NotSupportedException("Cannot add globals after script was already initialized");
+            }
+
             if (globals == null)
-                return model;
+                return scriptHandler;
 
             foreach (var (name, value) in globals)
             {
-                if (!model._globals.ContainsKey(name))
-                    model._globals.Add(name, value);
+                if (!scriptHandler._globals.ContainsKey(name))
+                    scriptHandler._globals.Add(name, value);
             }
 
-            return model;
+            return scriptHandler;
         }
     }
 }
