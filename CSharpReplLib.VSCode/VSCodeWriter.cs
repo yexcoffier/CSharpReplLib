@@ -56,7 +56,7 @@ namespace CSharpReplLib.VSCode
                 new ProcessStartInfo
                 {
                     FileName = "code",
-                    Arguments = $"\"{_tempFolder.FullName}\" -g \"{scriptTemplate.FullName}\":{13 + usings.Length}:43",
+                    Arguments = $"\"{_tempFolder.FullName}\" -g \"{scriptTemplate.FullName}\":{11 + usings.Length}:43",
                     CreateNoWindow = true
                 });
 
