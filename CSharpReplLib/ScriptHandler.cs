@@ -1,4 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
 using Microsoft.CodeAnalysis.Scripting;
 using Microsoft.CodeAnalysis.Scripting.Hosting;
@@ -151,7 +151,8 @@ namespace CSharpReplLib
 
             try
             {
-                await InitScript(token);
+                if (!await InitScript(token))
+                    return false;
 
                 using (await _scriptStateLock.LockAsync(token))
                 {
