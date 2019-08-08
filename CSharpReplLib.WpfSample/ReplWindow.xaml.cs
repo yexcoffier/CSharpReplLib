@@ -35,8 +35,7 @@ namespace CSharpReplLib.WpfSample
                 .AddReferences
                 (
                     Assembly.GetExecutingAssembly(),
-                    typeof(Application).Assembly,
-                    typeof(Brushes).Assembly
+                    includeReferencedAssemblies: true
                 )
                 .AddUsings
                 (
@@ -135,15 +134,14 @@ namespace CSharpReplLib.WpfSample
 
         private void AddScriptResult(ScriptHandler.ScriptResult result)
         {
-            if (HistoryText.Document.Blocks.Count == 1)
-                HistoryText.Visibility = Visibility.Visible;
-
             HistoryText.Document.Blocks.Add(new Paragraph(new Run(result.Result)));
             if (result.IsError)
             {
                 TextRange tr = new TextRange(HistoryText.Document.Blocks.LastBlock.ContentStart, HistoryText.Document.Blocks.LastBlock.ContentEnd);
                 tr.ApplyPropertyValue(TextElement.ForegroundProperty, Brushes.Red);
             }
+
+            HistoryText.Visibility = Visibility.Visible;
         }
 
         private void Window_Closed(object sender, EventArgs e)
