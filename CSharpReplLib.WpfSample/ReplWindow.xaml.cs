@@ -27,7 +27,7 @@ namespace CSharpReplLib.WpfSample
             InitializeComponent();
 
             
-            _scriptHandler = new ScriptHandler(async func => await Dispatcher.InvokeAsync(func))
+            _scriptHandler = new ScriptHandler(func => Dispatcher.InvokeAsync(func).Task)
                 .AddGlobals
                 (
                     ("CurrentWindow", this)
