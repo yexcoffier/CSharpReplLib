@@ -43,6 +43,7 @@ namespace CSharpReplLib.Tests
             Assert.False(result.IsError);
             Assert.False(result.IsCancelled);
             Assert.Equal("2", result.Result);
+            Assert.Equal(2, result.ReturnedValue);
         }
 
         [Fact]

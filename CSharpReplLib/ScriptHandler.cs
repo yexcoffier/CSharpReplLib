@@ -22,6 +22,7 @@ namespace CSharpReplLib
         public struct ScriptResult
         {
             public string Result { get; set; }
+            public object ReturnedValue { get; set; }
             public bool IsError { get; set; }
             public bool IsCancelled { get; set; }
         }
@@ -145,7 +146,7 @@ namespace CSharpReplLib
 
         public async Task<bool> ExecuteCode(string code, CancellationToken token = default, IScriptWriter sender = null)
         {
-            string result = null; bool isError = false; bool isCancelled = false;
+            string result = null; object returnedValue = null; bool isError = false; bool isCancelled = false;
 
             ScriptExecuted?.Invoke(this, new ScriptRequest { Script = code, Writer = sender });
 
@@ -161,6 +162,7 @@ namespace CSharpReplLib
                     else
                         _scriptState = await _scriptState.ContinueWithAsync(code, cancellationToken: token);
 
+                    returnedValue = _scriptState.ReturnValue;
                     result = _scriptState.ReturnValue?.ToString();
                     if (_scriptState.ReturnValue != null && _scriptState.ReturnValue.GetType() == typeof(string))
                         result = $"\"{result}\"";
@@ -179,7 +181,7 @@ namespace CSharpReplLib
 
             if (result != null)
             {
-                var scriptResult = new ScriptResult { Result = result, IsError = isError, IsCancelled = isCancelled };
+                var scriptResult = new ScriptResult { Result = result, ReturnedValue = returnedValue, IsError = isError, IsCancelled = isCancelled };
                 Results.Add(scriptResult);
                 ScriptResultReceived?.Invoke(this, scriptResult);
             }
