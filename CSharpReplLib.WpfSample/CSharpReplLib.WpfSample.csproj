@@ -108,6 +108,9 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="Converters\ToStringConverter.cs" />
+    <Compile Include="NotifyPropertyChanged.cs" />
+    <Compile Include="ScriptResultTemplateSelector.cs" />
     <Page Include="ReplWindow.xaml">
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
@@ -116,6 +119,9 @@
       <DependentUpon>App.xaml</DependentUpon>
       <SubType>Code</SubType>
     </Compile>
+    <Compile Include="Converters\ToObjectTreeConverter.cs" />
+    <Compile Include="Helper.cs" />
+    <Compile Include="ObjectTree.cs" />
     <Compile Include="ReplWindow.xaml.cs">
       <DependentUpon>ReplWindow.xaml</DependentUpon>
       <SubType>Code</SubType>

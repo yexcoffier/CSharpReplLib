@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -22,12 +23,14 @@ namespace CSharpReplLib.WpfSample
         private ScriptHandler _scriptHandler;
         private VSCodeWriter _vsCodeWriter;
 
+		public ObservableCollection<ScriptHandler.ScriptResult> History { get; } = new ObservableCollection<ScriptHandler.ScriptResult>();
+
         public ReplWindow()
         {
             InitializeComponent();
 
             
-            _scriptHandler = new ScriptHandler(func => Dispatcher.InvokeAsync(func).Task)
+            _scriptHandler = new ScriptHandler(func => Dispatcher.Invoke(func))
                 .AddGlobals
                 (
                     ("CurrentWindow", this)
@@ -63,7 +66,8 @@ namespace CSharpReplLib.WpfSample
                 case Key.Enter:
                     e.Handled = true;
 
-                    HistoryText.Document.Blocks.Add(new Paragraph(new Run($"> {ScriptTextBox.Text}")));
+					History.Add(new ScriptHandler.ScriptResult { Result = $"> {ScriptTextBox.Text}" });
+                    //HistoryText.Document.Blocks.Add(new Paragraph(new Run($"> {ScriptTextBox.Text}")));
 
                     _scriptsHistory.Add(ScriptTextBox.Text);
                     _historyIndex = _scriptsHistory.Count;
@@ -134,14 +138,7 @@ namespace CSharpReplLib.WpfSample
 
         private void AddScriptResult(ScriptHandler.ScriptResult result)
         {
-            HistoryText.Document.Blocks.Add(new Paragraph(new Run(result.Result)));
-            if (result.IsError)
-            {
-                TextRange tr = new TextRange(HistoryText.Document.Blocks.LastBlock.ContentStart, HistoryText.Document.Blocks.LastBlock.ContentEnd);
-                tr.ApplyPropertyValue(TextElement.ForegroundProperty, Brushes.Red);
-            }
-
-            HistoryText.Visibility = Visibility.Visible;
+			History.Add(result);
         }
 
         private void Window_Closed(object sender, EventArgs e)
