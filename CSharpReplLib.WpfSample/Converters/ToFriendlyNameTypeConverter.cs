@@ -1,15 +1,17 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Data;
 
-namespace CSharpReplLib.WpfSample
+namespace CSharpReplLib.WpfSample.Converters
 {
-	public static class Helper
+	public class ToFriendlyNameTypeConverter : IValueConverter
 	{
 		// https://stackoverflow.com/questions/4185521/c-sharp-get-generic-type-name/26429045
-		internal static string GetFriendlyName(this Type type)
+		private static string GetFriendlyName(Type type)
 		{
 			string friendlyName = type.Name;
 			if (type.IsGenericType)
@@ -31,5 +33,18 @@ namespace CSharpReplLib.WpfSample
 
 			return friendlyName;
 		}
+
+		public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+		{
+			if (value == null)
+				return string.Empty;
+
+			if (!(value is Type type))
+				throw new ArgumentException("Require a value of type Type");
+
+			return GetFriendlyName(type);
+		}
+
+		public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture) => throw new NotImplementedException();
 	}
 }

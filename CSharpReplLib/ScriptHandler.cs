@@ -152,13 +152,19 @@ namespace CSharpReplLib
 
 			try
 			{
-				if (!await InitScript(token))
+				if (!await InitScript())
 					return false;
 
-				using (await _scriptStateLock.LockAsync(token))
+				var locking = await _scriptStateLock.LockAsync(token);
+
+				try
 				{
 					if (executionContext != null)
+					{
+						locking.Dispose();
+						locking = null;
 						return await executionContext(() => ExecuteCode(code, token, sender, null));
+					}
 					else
 						_scriptState = await _scriptState.ContinueWithAsync(code, cancellationToken: token);
 
@@ -167,6 +173,11 @@ namespace CSharpReplLib
 					if (_scriptState.ReturnValue != null && _scriptState.ReturnValue.GetType() == typeof(string))
 						result = $"\"{result}\"";
 				}
+				finally
+				{
+					locking?.Dispose();
+				}
+
 			}
 			catch (CompilationErrorException e)
 			{

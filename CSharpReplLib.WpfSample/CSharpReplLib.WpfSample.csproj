@@ -108,6 +108,8 @@
       <Generator>MSBuild:Compile</Generator>
       <SubType>Designer</SubType>
     </ApplicationDefinition>
+    <Compile Include="Behaviors\IgnoreMouseWheelBehavior.cs" />
+    <Compile Include="Converters\ToFriendlyNameTypeConverter.cs" />
     <Compile Include="Converters\ToStringConverter.cs" />
     <Compile Include="NotifyPropertyChanged.cs" />
     <Compile Include="ScriptResultTemplateSelector.cs" />
@@ -120,7 +122,6 @@
       <SubType>Code</SubType>
     </Compile>
     <Compile Include="Converters\ToObjectTreeConverter.cs" />
-    <Compile Include="Helper.cs" />
     <Compile Include="ObjectTree.cs" />
     <Compile Include="ReplWindow.xaml.cs">
       <DependentUpon>ReplWindow.xaml</DependentUpon>

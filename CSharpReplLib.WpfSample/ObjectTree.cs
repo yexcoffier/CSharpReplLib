@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 
 namespace CSharpReplLib.WpfSample
@@ -11,12 +12,13 @@ namespace CSharpReplLib.WpfSample
 	public class ObjectTree : NotifyPropertyChanged, IDisposable
 	{
 		public string Name { get; }
+
 		public Type Type { get; }
 		public object Value { get; }
 		public ObjectTree Parent { get; }
 		public ObservableCollection<ObjectTree> Children { get; } = new ObservableCollection<ObjectTree>();
 
-		public bool CanExpand { get; }
+		readonly private bool _canExpand;
 
 
 		private bool _isExpanded = false;
@@ -32,7 +34,8 @@ namespace CSharpReplLib.WpfSample
 			Value = value;
 			Name = name;
 			Type = value?.GetType();
-			CanExpand = !(Value == null || Type == typeof(string) || Type.IsValueType);
+
+			_canExpand = !(Value == null || Type == typeof(string) || Type.IsValueType);
 
 			if (parent != null)
 				parent.PropertyChanged += ObjectTree_PropertyChanged;
@@ -46,7 +49,7 @@ namespace CSharpReplLib.WpfSample
 
 		public void Deploy()
 		{
-			if (!CanExpand || Value == null || Children.Any())
+			if (!_canExpand || Value == null || Children.Any())
 				return;
 
 			if (Value is IEnumerable enumerable)
@@ -57,11 +60,24 @@ namespace CSharpReplLib.WpfSample
 				return;
 			}
 
-			var properties = Type.GetProperties().Select(prop => new ObjectTree(this, prop.GetValue(Value), prop.Name));
+			var properties = Type.GetProperties().Select(GetObjectTreeFromProperty).Where(o => o != null);
 			var fields = Type.GetFields().Select(field => new ObjectTree(this, field.GetValue(Value), field.Name));
 
 			foreach (var child in properties.Concat(fields).OrderBy(ot => ot.Name))
 				Children.Add(child);
+		}
+
+		private ObjectTree GetObjectTreeFromProperty(PropertyInfo prop)
+		{
+			try
+			{
+				var value = prop.GetValue(Value);
+				return new ObjectTree(this, value, prop.Name);
+			}
+			catch (TargetInvocationException)
+			{
+				return null;
+			}
 		}
 
 		private IEnumerable<ObjectTree> DeployEnumerable(IEnumerable enumerable)
@@ -69,14 +85,6 @@ namespace CSharpReplLib.WpfSample
 			var enumerator = enumerable.GetEnumerator();
 			while (enumerator.MoveNext())
 				yield return new ObjectTree(this, enumerator.Current, null);
-		}
-
-		public override string ToString()
-		{
-			if (Value is null)
-				return $"{(Name != null ? $"{Name} " : "")} {(Type != null ? $"({Type.GetFriendlyName()})" : "")} : null";
-
-			return $"{(Name != null ? $"{Name} " : "")}{(Type != null ? $"({Type.GetFriendlyName()})" : "")}{(Type.IsValueType ? $" : {Value.ToString()}" : "")}";
 		}
 
 		public void Dispose() => throw new NotImplementedException();

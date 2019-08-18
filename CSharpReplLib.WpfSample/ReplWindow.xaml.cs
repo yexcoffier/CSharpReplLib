@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Documents;
@@ -17,11 +18,22 @@ namespace CSharpReplLib.WpfSample
     /// </summary>
     public partial class ReplWindow : Window
     {
-        private List<string> _scriptsHistory = new List<string>();
+		public Visibility WaitingResult
+		{
+			get { return (Visibility)GetValue(WaitingResultProperty); }
+			set { SetValue(WaitingResultProperty, value); }
+		}
+		public static readonly DependencyProperty WaitingResultProperty =
+			DependencyProperty.Register("WaitingResult", typeof(Visibility), typeof(ReplWindow), new PropertyMetadata(Visibility.Collapsed));
+
+
+		private List<string> _scriptsHistory = new List<string>();
         private int _historyIndex = 0;
 
         private ScriptHandler _scriptHandler;
         private VSCodeWriter _vsCodeWriter;
+
+		private CancellationTokenSource _tokenSource;
 
 		public ObservableCollection<ScriptHandler.ScriptResult> History { get; } = new ObservableCollection<ScriptHandler.ScriptResult>();
 
@@ -72,12 +84,17 @@ namespace CSharpReplLib.WpfSample
                     _scriptsHistory.Add(ScriptTextBox.Text);
                     _historyIndex = _scriptsHistory.Count;
 
-                    await _scriptHandler.ExecuteCode(ScriptTextBox.Text);
+					var request = ScriptTextBox.Text;
 
-                    ScriptTextBox.Text = string.Empty;
-                    ScriptTextBox.Focus();
+					ScriptTextBox.Text = string.Empty;
 
-                    break;
+					WaitingResult = Visibility.Visible;
+					await _scriptHandler.ExecuteCode(request, GetToken());
+					WaitingResult = Visibility.Collapsed;
+
+					ScriptTextBox.Focus();
+
+					break;
 
                 case Key.Up:
                     _historyIndex = Math.Max(0, _historyIndex - 1);
@@ -105,6 +122,13 @@ namespace CSharpReplLib.WpfSample
             }
         }
 
+		private CancellationToken GetToken()
+		{
+			_tokenSource?.Cancel();
+			_tokenSource = new CancellationTokenSource();
+			return _tokenSource.Token;
+		}
+
         private void ScrollViewer_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             e.Handled = false;
@@ -112,20 +136,19 @@ namespace CSharpReplLib.WpfSample
 
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
-
             ScriptTextBox.Focus();
         }
 
         private void ScriptHandler_ScriptResultReceived(object sender, ScriptHandler.ScriptResult e)
         {
-            Dispatcher.Invoke(() => AddScriptResult(e));
-        }
+			Dispatcher.Invoke(() => AddScriptResult(e));
+		}
 
-        private void ScriptHandler_ScriptExecuted(object sender, ScriptHandler.ScriptRequest e)
-        {
-            if (e.Writer != null && e.Writer == _vsCodeWriter)
-                Dispatcher.Invoke(() => AddScriptResult(new ScriptHandler.ScriptResult { Result = "> Execute script from VS code...", IsError = false }));
-        }
+		private void ScriptHandler_ScriptExecuted(object sender, ScriptHandler.ScriptRequest e)
+		{
+			if (e.Writer != null && e.Writer == _vsCodeWriter)
+				Dispatcher.Invoke(() => AddScriptResult(new ScriptHandler.ScriptResult { Result = "> Execute script from VS code...", IsError = false }));
+		}
 
         private void OpenVsCode_Click(object sender, RoutedEventArgs e)
         {
