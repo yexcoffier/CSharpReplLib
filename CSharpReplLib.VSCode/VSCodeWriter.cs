@@ -19,65 +19,65 @@ namespace CSharpReplLib.VSCode
 
         private ScriptHandler _scriptHandler;
 
-        public void Open(ScriptHandler scriptHandler)
-        {
-            if (_tempFolder != null && _tempFolder.Exists)
-                _tempFolder.Delete();
+		public void Open(ScriptHandler scriptHandler, Type returnType = null)
+		{
+			if (_tempFolder != null && _tempFolder.Exists)
+				_tempFolder.Delete();
 
-            _scriptHandler = scriptHandler;
+			_scriptHandler = scriptHandler;
 
-            _tempFolder = new DirectoryInfo(Path.Combine(Path.GetTempPath(), Path.GetRandomFileName()));
-            _tempFolder.Create();
+			_tempFolder = new DirectoryInfo(Path.Combine(Path.GetTempPath(), Path.GetRandomFileName()));
+			_tempFolder.Create();
 
-            FileInfo csprojFile = new FileInfo(Path.Combine(_tempFolder.FullName, "ScriptProject.csproj"));
-            FileInfo globalFile = new FileInfo(Path.Combine(_tempFolder.FullName, "ScriptGlobals.cs"));
-            FileInfo scriptTemplate = new FileInfo(Path.Combine(_tempFolder.FullName, "ScriptTemplate.cs"));
+			FileInfo csprojFile = new FileInfo(Path.Combine(_tempFolder.FullName, "ScriptProject.csproj"));
+			FileInfo globalFile = new FileInfo(Path.Combine(_tempFolder.FullName, "ScriptGlobals.cs"));
+			FileInfo scriptTemplate = new FileInfo(Path.Combine(_tempFolder.FullName, "ScriptTemplate.cs"));
 
-            var usings = scriptHandler.GetUsings();
-            var references = scriptHandler.GetReferences();
-            var globals = scriptHandler.GetGlobals();
+			var usings = scriptHandler.GetUsings();
+			var references = scriptHandler.GetReferences();
+			var globals = scriptHandler.GetGlobals();
 
-            File.WriteAllText(csprojFile.FullName, CreateProject(references));
-            File.WriteAllText(globalFile.FullName, CreateGlobals(usings, globals));
-            File.WriteAllText(scriptTemplate.FullName, CreateTemplate(usings));
+			File.WriteAllText(csprojFile.FullName, CreateProject(references));
+			File.WriteAllText(globalFile.FullName, CreateGlobals(usings, globals));
+			File.WriteAllText(scriptTemplate.FullName, CreateTemplate(usings, returnType));
 
-            // dotnet restore on the project just created
-            Process.Start(
-                new ProcessStartInfo
-                {
-                    FileName = "dotnet",
-                    Arguments = "restore",
-                    WorkingDirectory = _tempFolder.FullName,
-                    CreateNoWindow = true
-                });
+			// dotnet restore on the project just created
+			Process.Start(
+				new ProcessStartInfo
+				{
+					FileName = "dotnet",
+					Arguments = "restore",
+					WorkingDirectory = _tempFolder.FullName,
+					CreateNoWindow = true
+				});
 
-            // Start VS Code
-            Process.Start(
-                new ProcessStartInfo
-                {
-                    FileName = "code",
-                    Arguments = $"\"{_tempFolder.FullName}\" -g \"{scriptTemplate.FullName}\":{11 + usings.Length}:43",
-                    CreateNoWindow = true
-                });
+			// Start VS Code
+			Process.Start(
+				new ProcessStartInfo
+				{
+					FileName = "code",
+					Arguments = $"\"{_tempFolder.FullName}\" -g \"{scriptTemplate.FullName}\":{11 + usings.Length}:43",
+					CreateNoWindow = true
+				});
 
 
-            if (_watcher != null)
-            {
-                _watcher.Changed -= WatcherChanged;
-                _watcher.Dispose();
-            }
+			if (_watcher != null)
+			{
+				_watcher.Changed -= WatcherChanged;
+				_watcher.Dispose();
+			}
 
-            _watcher = new FileSystemWatcher(_tempFolder.FullName)
-            {
-                NotifyFilter = NotifyFilters.LastWrite,
-                Filter = "*ScriptTemplate.cs"
-            };
+			_watcher = new FileSystemWatcher(_tempFolder.FullName)
+			{
+				NotifyFilter = NotifyFilters.LastWrite,
+				Filter = "*ScriptTemplate.cs"
+			};
 
-            _watcher.Changed += WatcherChanged;
-            _watcher.EnableRaisingEvents = true;
-        }
+			_watcher.Changed += WatcherChanged;
+			_watcher.EnableRaisingEvents = true;
+		}
 
-        private string CreateGlobals(string[] usings, IReadOnlyDictionary<string, object> globals)
+		private string CreateGlobals(string[] usings, IReadOnlyDictionary<string, object> globals, IReadOnlyDictionary<string, object> variables = null)
         {
             StringBuilder str = new StringBuilder();
 
@@ -91,42 +91,46 @@ namespace CSharpReplLib.VSCode
             foreach (var global in globals)
                 str.AppendLine($"\tpublic static {global.Value.GetType().GetFriendlyName()} {global.Key} {{ get; }}");
 
-            str.AppendLine("}");
+			if (variables != null)
+				foreach (var variable in variables)
+					str.AppendLine($"\tpublic static {variable.Value.GetType().GetFriendlyName()} {variable.Key} {{ get; }}");
+
+			str.AppendLine("}");
 
             return str.ToString();
         }
 
-        private string CreateTemplate(string[] usings)
-        {
-            StringBuilder str = new StringBuilder();
+		private string CreateTemplate(string[] usings, Type returnType = null)
+		{
+			StringBuilder str = new StringBuilder();
 
-            str.AppendLine("using static ScriptGlobals; // first line is removed at script execution, don't change the first line");
+			str.AppendLine("using static ScriptGlobals; // first line is removed at script execution, don't change the first line");
 
-            foreach (var use in usings)
-                str.AppendLine($"using {use};");
+			foreach (var use in usings)
+				str.AppendLine($"using {use};");
 
-            str.AppendLine();
+			str.AppendLine();
 
-            str.Append(
+			str.AppendFormat(
 @"public class ScriptTemplate // Class declaration will also be removed so we stay in same scope as the script state
 {
 	// Write your script inside the ExecuteScript method. 
 	// You can create other methods or class inside this class as long as you keep a method named ExecuteScript().
 	// The script is automatically executed every time the file is saved
 
-	public object ExecuteScript()
+	public {0} ExecuteScript()
 	{
 		return ""Return your script result here"";
 	}
 
 	// Let this comment just before the class closing bracket
 }"
-            );
+			, returnType?.GetFriendlyName() ?? "object");
 
-            return str.ToString();
-        }
+			return str.ToString();
+		}
 
-        private string CreateProject(Assembly[] references)
+		private string CreateProject(Assembly[] references)
         {
             StringBuilder str = new StringBuilder();
 

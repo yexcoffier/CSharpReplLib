@@ -6,6 +6,6 @@ namespace CSharpReplLib
 {
     public interface IScriptWriter : IDisposable
     {
-        void Open(ScriptHandler scriptHandler);
+        void Open(ScriptHandler scriptHandler, Type returnType = null);
     }
 }
