@@ -87,5 +87,48 @@ namespace CSharpReplLib.Tests
             Assert.False(codeSucceeded);
             Assert.True(results.FirstOrDefault().IsCancelled);
         }
+
+		[Fact]
+		public async Task ResetStateTest()
+		{
+			var scriptHandler = new ScriptHandler();
+
+			List<ScriptHandler.ScriptResult> results = new List<ScriptHandler.ScriptResult>();
+			scriptHandler.ScriptResultReceived += (sender, args) =>
+			{
+				results.Add(args);
+			};
+
+			var initSucceeded = await scriptHandler.InitScript();
+			Assert.True(initSucceeded);
+
+			string expected = "Hello world";
+
+			await scriptHandler.ExecuteCode($"var a = \"{expected}\";");
+			await scriptHandler.ExecuteCode("a");
+
+			var returnedValue = results.Last().ReturnedValue as string;
+			Assert.Equal(expected, returnedValue);
+
+			await scriptHandler.ResetState();
+			await scriptHandler.ExecuteCode("a");
+
+			Assert.True(results.Last().IsError);
+		}
+
+		[Fact]
+		public async Task GenerateTest()
+		{
+			var scriptHandler = new ScriptHandler();
+
+			var initSucceeded = await scriptHandler.InitScript();
+			Assert.True(initSucceeded);
+
+			var generatedString = await scriptHandler.Generate<string>("\"test\"");
+			Assert.Equal("test", generatedString);
+
+			var generatedFunc = await scriptHandler.Generate<Func<int, string>>("i => i.ToString()");
+			Assert.Equal("5", generatedFunc(5));
+		}
     }
 }

@@ -78,7 +78,7 @@ namespace CSharpReplLib.WpfSample
                 case Key.Enter:
                     e.Handled = true;
 
-					History.Add(new ScriptHandler.ScriptResult { Result = $"> {ScriptTextBox.Text}" });
+					History.Add(new ScriptHandler.ScriptResult ( result : $"> {ScriptTextBox.Text}" ));
                     //HistoryText.Document.Blocks.Add(new Paragraph(new Run($"> {ScriptTextBox.Text}")));
 
                     _scriptsHistory.Add(ScriptTextBox.Text);
@@ -147,7 +147,7 @@ namespace CSharpReplLib.WpfSample
 		private void ScriptHandler_ScriptExecuted(object sender, ScriptHandler.ScriptRequest e)
 		{
 			if (e.Writer != null && e.Writer == _vsCodeWriter)
-				Dispatcher.Invoke(() => AddScriptResult(new ScriptHandler.ScriptResult { Result = "> Execute script from VS code...", IsError = false }));
+				Dispatcher.Invoke(() => AddScriptResult(new ScriptHandler.ScriptResult ( result : "> Execute script from VS code...", isError : false )));
 		}
 
         private void OpenVsCode_Click(object sender, RoutedEventArgs e)

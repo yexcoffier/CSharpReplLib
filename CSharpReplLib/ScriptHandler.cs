@@ -21,17 +21,45 @@ namespace CSharpReplLib
     {
         public struct ScriptResult
         {
-            public string Result { get; set; }
-            public object ReturnedValue { get; set; }
-            public bool IsError { get; set; }
-            public bool IsCancelled { get; set; }
+            public string Result { get; }
+            public object ReturnedValue { get; }
+            public bool IsError { get; }
+            public bool IsCancelled { get; }
+
+			public ScriptResult(string result = null, object returnedValue = null, bool isError = false, bool isCancelled = false)
+			{
+				Result = result;
+				ReturnedValue = returnedValue;
+				IsError = isError;
+				IsCancelled = isCancelled;
+			}
         }
 
-        public class ScriptRequest
+        public struct ScriptRequest
         {
-            public string Script { get; set; }
-            public IScriptWriter Writer { get; set; }
+            public string Script { get; }
+            public IScriptWriter Writer { get; }
+
+			public ScriptRequest(string script = null, IScriptWriter writer = null)
+			{
+				Script = script;
+				Writer = writer;
+			}
         }
+
+		public struct Variable
+		{
+			public string Name { get; }
+			public Type Type { get; }
+			public object Value { get; }
+
+			public Variable(string name = null, Type type = null, object value = null)
+			{
+				Name = name;
+				Type = type;
+				Value = value;
+			}
+		}
 
         public List<ScriptResult> Results = new List<ScriptResult>();
         public List<ScriptRequest> Requests = new List<ScriptRequest>();
@@ -51,6 +79,8 @@ namespace CSharpReplLib
         internal readonly Dictionary<string, object> _globals = new Dictionary<string, object>();
 
         internal ScriptState<object> _scriptState;
+		private Script<object> _script;
+		private object _globalInstances;
         internal AsyncLock _scriptStateLock = new AsyncLock();
         
 
@@ -76,49 +106,52 @@ namespace CSharpReplLib
 
                     var globals = _globals.ToDictionaryLocked(_lockGlobals);
 
-                    if (globals.Any())
-                    {
-                        var createGlobalsScript = CSharpScript.Create(CreateGlobalsType(), options);
-                        var image = createGlobalsScript.GetCompilation();
+					if (globals.Any())
+					{
+						var createGlobalsScript = CSharpScript.Create(CreateGlobalsType(), options);
+						var image = createGlobalsScript.GetCompilation();
 
-                        var stream = new MemoryStream();
-                        var result = image.Emit(stream, cancellationToken: token);
+						var stream = new MemoryStream();
+						var result = image.Emit(stream, cancellationToken: token);
 
-                        if (!result.Success)
-                        {
-                            var scriptResult = new ScriptResult
-                            {
-                                Result = string.Join("\n", result.Diagnostics.Select(d => d.GetMessage())),
-                                IsError = true
-                            };
+						if (!result.Success)
+						{
+							var scriptResult = new ScriptResult
+							(
+								result : string.Join("\n", result.Diagnostics.Select(d => d.GetMessage())),
+								isError : true
+							);
 
-                            Results.Add(scriptResult);
-                            ScriptResultReceived?.Invoke(this, scriptResult);
+							Results.Add(scriptResult);
+							ScriptResultReceived?.Invoke(this, scriptResult);
 
-                            return false;
-                        }
+							return false;
+						}
 
-                        var imageArray = ImmutableArray.Create(stream.ToArray());
+						var imageArray = ImmutableArray.Create(stream.ToArray());
 
-                        var portableReference = MetadataReference.CreateFromImage(imageArray);
+						var portableReference = MetadataReference.CreateFromImage(imageArray);
 
-                        var libAssembly = Assembly.Load(imageArray.ToArray());
-                        var globalsType = libAssembly.GetTypes().FirstOrDefault(t => t.Name == "ScriptGlobals");
-                        var globalsInstance = Activator.CreateInstance(globalsType);
+						var libAssembly = Assembly.Load(imageArray.ToArray());
+						var globalsType = libAssembly.GetTypes().FirstOrDefault(t => t.Name == "ScriptGlobals");
+						_globalInstances = Activator.CreateInstance(globalsType);
 
-                        foreach (var propInfo in globalsType.GetFields())
-                            propInfo.SetValue(globalsInstance, globals[propInfo.Name]);
+						foreach (var propInfo in globalsType.GetFields())
+							propInfo.SetValue(_globalInstances, globals[propInfo.Name]);
 
-                        using (var loader = new InteractiveAssemblyLoader())
-                        {
-                            loader.RegisterDependency(libAssembly);
+						using (var loader = new InteractiveAssemblyLoader())
+						{
+							loader.RegisterDependency(libAssembly);
 
-                            var script = CSharpScript.Create(string.Empty, options.AddReferences(portableReference), globalsType, loader);
-                            _scriptState = await script.RunAsync(globalsInstance, cancellationToken: token);
-                        }
-                    }
-                    else
-                        _scriptState = await CSharpScript.RunAsync(string.Empty, options, cancellationToken: token);
+							_script = CSharpScript.Create(string.Empty, options.AddReferences(portableReference), globalsType, loader);
+							_scriptState = await _script.RunAsync(_globalInstances, cancellationToken: token);
+						}
+					}
+					else
+					{
+						_script = CSharpScript.Create(string.Empty, options);
+						_scriptState = await _script.RunAsync(cancellationToken: token);
+					}
                 }
                 catch (OperationCanceledException)
                 {
@@ -129,6 +162,32 @@ namespace CSharpReplLib
             return _scriptState != null;
         }
 
+		public async Task ResetState()
+		{
+			_scriptState = await _script.RunAsync(_globalInstances);
+		}
+
+		public async Task<T> Generate<T>(string funcString, bool useCurrentState = false, CancellationToken token = default)
+		{
+			if (!await InitScript())
+				throw new InvalidOperationException("ScriptHandler initialization failed");
+
+			ScriptState<object> tempState;
+			if (useCurrentState)
+				tempState = _scriptState;
+			else
+				tempState = await _script.RunAsync(_globalInstances, token);
+
+			try
+			{
+				var returnedState = await tempState.ContinueWithAsync<T>(funcString, cancellationToken: token);
+				return returnedState.ReturnValue;
+			}
+			catch (CompilationErrorException e)
+			{
+				throw new InvalidOperationException(e.Message, e);
+			}
+		}
 
         private string CreateGlobalsType()
         {
@@ -148,7 +207,7 @@ namespace CSharpReplLib
 		{
 			string result = null; object returnedValue = null; bool isError = false; bool isCancelled = false;
 
-			ScriptExecuted?.Invoke(this, new ScriptRequest { Script = code, Writer = sender });
+			ScriptExecuted?.Invoke(this, new ScriptRequest ( script : code, writer : sender ));
 
 			try
 			{
@@ -192,7 +251,7 @@ namespace CSharpReplLib
 
 			if (result != null)
 			{
-				var scriptResult = new ScriptResult { Result = result, ReturnedValue = returnedValue, IsError = isError, IsCancelled = isCancelled };
+				var scriptResult = new ScriptResult ( result, returnedValue, isError, isCancelled );
 				Results.Add(scriptResult);
 				ScriptResultReceived?.Invoke(this, scriptResult);
 			}
@@ -208,6 +267,17 @@ namespace CSharpReplLib
 		public Assembly[] GetReferences() => _references.ToArrayLocked(_lockReferences);
         public string[] GetUsings() => _usings.ToArrayLocked(_lockUsings);
         public IReadOnlyDictionary<string, object> GetGlobals() => _globals.ToDictionaryLocked(_lockGlobals);
+
+		public async Task<IReadOnlyDictionary<string, object>> GetVariables(CancellationToken token = default)
+		{
+			using (await _scriptStateLock.LockAsync(token))
+			{
+				if (token.IsCancellationRequested)
+					return null;
+
+				return _scriptState?.Variables.ToDictionary(sv => sv.Name, sv => sv.Value);
+			}
+		}
     }
 
     public static class ScriptViewModelExtension
