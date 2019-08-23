@@ -207,8 +207,6 @@ namespace CSharpReplLib
 		{
 			string result = null; object returnedValue = null; bool isError = false; bool isCancelled = false;
 
-			ScriptExecuted?.Invoke(this, new ScriptRequest ( script : code, writer : sender ));
-
 			try
 			{
 				if (!await InitScript())
@@ -225,7 +223,10 @@ namespace CSharpReplLib
 						return await executionContext(() => ExecuteCode(code, token, sender, null));
 					}
 					else
+					{
+						ScriptExecuted?.Invoke(this, new ScriptRequest(script: code, writer: sender));
 						_scriptState = await _scriptState.ContinueWithAsync(code, cancellationToken: token);
+					}
 
 					returnedValue = _scriptState.ReturnValue;
 					result = _scriptState.ReturnValue?.ToString();
