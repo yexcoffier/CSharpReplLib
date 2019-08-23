@@ -20,7 +20,7 @@ namespace CSharpReplLib.WpfSample
 					return element.FindResource("ScriptResultErrorTemplate") as DataTemplate;
 				else if (result.IsCancelled)
 					return element.FindResource("ScriptResultCancelledTemplate") as DataTemplate;
-				else if (result.ReturnedValue != null)
+				else if (result.ReturnedValue != null && !result.ReturnedValue.GetType().IsValueType && result.ReturnedValue.GetType() != typeof(string))
 					return element.FindResource("ScriptResultValueTemplate") as DataTemplate;
 				else
 					return element.FindResource("ScriptResultResultTemplate") as DataTemplate;
