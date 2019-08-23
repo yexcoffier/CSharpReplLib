@@ -111,21 +111,22 @@ namespace CSharpReplLib.VSCode
 
 			str.AppendLine();
 
-			str.AppendFormat(
+			str.AppendLine(
 @"public class ScriptTemplate // Class declaration will also be removed so we stay in same scope as the script state
 {
 	// Write your script inside the ExecuteScript method. 
 	// You can create other methods or class inside this class as long as you keep a method named ExecuteScript().
-	// The script is automatically executed every time the file is saved
+	// The script is automatically executed every time the file is saved");
 
-	public {0} ExecuteScript()
+			str.AppendFormat("	public {0} ExecuteScript()", returnType?.GetFriendlyName() ?? "object");
+			str.AppendLine(
+@"
 	{
 		return ""Return your script result here"";
 	}
 
 	// Let this comment just before the class closing bracket
-}"
-			, returnType?.GetFriendlyName() ?? "object");
+}");
 
 			return str.ToString();
 		}
