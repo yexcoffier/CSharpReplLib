@@ -47,20 +47,6 @@ namespace CSharpReplLib
 			}
         }
 
-		public struct Variable
-		{
-			public string Name { get; }
-			public Type Type { get; }
-			public object Value { get; }
-
-			public Variable(string name = null, Type type = null, object value = null)
-			{
-				Name = name;
-				Type = type;
-				Value = value;
-			}
-		}
-
         public List<ScriptResult> Results = new List<ScriptResult>();
         public List<ScriptRequest> Requests = new List<ScriptRequest>();
 
@@ -212,32 +198,20 @@ namespace CSharpReplLib
 				if (!await InitScript())
 					return false;
 
-				var locking = await _scriptStateLock.LockAsync(token);
+				if (executionContext != null)
+					return await executionContext(() => ExecuteCode(code, token, sender, null));
 
-				try
-				{
-					if (executionContext != null)
-					{
-						locking.Dispose();
-						locking = null;
-						return await executionContext(() => ExecuteCode(code, token, sender, null));
-					}
-					else
-					{
-						ScriptExecuted?.Invoke(this, new ScriptRequest(script: code, writer: sender));
-						_scriptState = await _scriptState.ContinueWithAsync(code, cancellationToken: token);
-					}
+				ScriptExecuted?.Invoke(this, new ScriptRequest(script: code, writer: sender));
+
+				using (await _scriptStateLock.LockAsync(token))
+				{ 
+					_scriptState = await _scriptState.ContinueWithAsync(code, cancellationToken: token);
 
 					returnedValue = _scriptState.ReturnValue;
 					result = _scriptState.ReturnValue?.ToString();
 					if (_scriptState.ReturnValue != null && _scriptState.ReturnValue.GetType() == typeof(string))
 						result = $"\"{result}\"";
 				}
-				finally
-				{
-					locking?.Dispose();
-				}
-
 			}
 			catch (CompilationErrorException e)
 			{
@@ -260,9 +234,68 @@ namespace CSharpReplLib
 			return !isError && !isCancelled;
 		}
 
+		private async Task<bool> ExecuteCode<T>(string code, CancellationToken token, IScriptWriter sender, Func<Func<Task<bool>>, Task<bool>> executionContext, bool useCurrentState)
+		{
+			string result = null; object returnedValue = null; bool isError = false; bool isCancelled = false;
+
+			try
+			{
+				if (!await InitScript())
+					return false;
+
+				ScriptState<object> tempState;
+
+				if (executionContext != null)
+					return await executionContext(() => ExecuteCode<T>(code, token, sender, null, useCurrentState));
+
+				ScriptExecuted?.Invoke(this, new ScriptRequest(script: code, writer: sender));
+
+				if (useCurrentState)
+					tempState = _scriptState;
+				else
+					tempState = await _script.RunAsync(_globalInstances, token);
+
+				var resultState = await _scriptState.ContinueWithAsync<T>(code, cancellationToken: token);
+
+				returnedValue = resultState.ReturnValue;
+				result = resultState.ReturnValue?.ToString();
+				if (resultState.ReturnValue != null && resultState.ReturnValue.GetType() == typeof(string))
+					result = $"\"{result}\"";
+
+			}
+			catch (CompilationErrorException e)
+			{
+				result = e.Message;
+				isError = true;
+			}
+			catch (OperationCanceledException)
+			{
+				result = string.Empty;
+				isCancelled = true;
+			}
+
+			if (result != null)
+			{
+				var scriptResult = new ScriptResult(result, returnedValue, isError, isCancelled);
+				Results.Add(scriptResult);
+				ScriptResultReceived?.Invoke(this, scriptResult);
+			}
+
+			return !isError && !isCancelled;
+		}
+
+		private Task<bool> ExecuteCode<T>(string code, CancellationToken token, IScriptWriter sender, Func<Func<Task<bool>>, Task<bool>> executionContext, bool useCurrentState, T typeUsedForInference)
+			=> ExecuteCode<T>(code, token, sender, executionContext, useCurrentState);
+
 
 		public Task<bool> ExecuteCode(string code, CancellationToken token = default, IScriptWriter sender = null)
 			=> ExecuteCode(code, token, sender, _executionContext);
+
+		public Task<bool> ExecuteCode<T>(string code, CancellationToken token = default, IScriptWriter sender = null, bool useCurrentState = true)
+			=> ExecuteCode<T>(code, token, sender, _executionContext, useCurrentState);
+
+		public Task<bool> ExecuteCode(string code, Type returnType, CancellationToken token = default, IScriptWriter sender = null, bool useCurrentState = true)
+			=> ExecuteCode(code, token, sender, _executionContext, useCurrentState, returnType);
 
 
 		public Assembly[] GetReferences() => _references.ToArrayLocked(_lockReferences);
@@ -280,6 +313,7 @@ namespace CSharpReplLib
 			}
 		}
     }
+
 
     public static class ScriptViewModelExtension
     {

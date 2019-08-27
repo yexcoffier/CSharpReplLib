@@ -18,12 +18,14 @@ namespace CSharpReplLib.VSCode
         private CancellationTokenSource _readingScriptFileTokenSource;
 
         private ScriptHandler _scriptHandler;
+		private Type _returnType = null;
 
 		public void Open(ScriptHandler scriptHandler, Type returnType = null)
 		{
 			if (_tempFolder != null && _tempFolder.Exists)
 				_tempFolder.Delete();
 
+			_returnType = returnType;
 			_scriptHandler = scriptHandler;
 
 			_tempFolder = new DirectoryInfo(Path.Combine(Path.GetTempPath(), Path.GetRandomFileName()));
@@ -70,11 +72,11 @@ namespace CSharpReplLib.VSCode
 			_watcher = new FileSystemWatcher(_tempFolder.FullName)
 			{
 				NotifyFilter = NotifyFilters.LastWrite,
-				Filter = "*ScriptTemplate.cs"
+				Filter = "*ScriptTemplate.cs",
+				EnableRaisingEvents = true
 			};
 
 			_watcher.Changed += WatcherChanged;
-			_watcher.EnableRaisingEvents = true;
 		}
 
 		private string CreateGlobals(string[] usings, IReadOnlyDictionary<string, object> globals, IReadOnlyDictionary<string, object> variables = null)
@@ -205,11 +207,11 @@ namespace CSharpReplLib.VSCode
             // reconstruct
             var script = string.Join("\n", allLines.Take(classIndex).Skip(1).Concat(afterClass.Yield()));
 
-            //Results.Add(new ScriptResult { Result = "> Execute script from VS code...", IsError = false });
-
-            await _scriptHandler.ExecuteCode(script + "\nExecuteScript()", sender: this);
-            //await ExecuteCode("ExecuteScript()", ScriptType.VSCode);
-        }
+			if (_returnType != null)
+				await _scriptHandler.ExecuteCode(script + "\nExecuteScript()", sender: this);
+			else
+				await _scriptHandler.ExecuteCode(script + "\nExecuteScript()", _returnType, sender: this);
+		}
 
         private CancellationToken GetToken()
         {

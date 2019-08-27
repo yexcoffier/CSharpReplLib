@@ -130,5 +130,28 @@ namespace CSharpReplLib.Tests
 			var generatedFunc = await scriptHandler.Generate<Func<int, string>>("i => i.ToString()");
 			Assert.Equal("5", generatedFunc(5));
 		}
+
+		[Fact]
+		public async Task ExecuteCodeWithReturningType()
+		{
+			var scriptHandler = new ScriptHandler();
+
+			List<ScriptHandler.ScriptResult> results = new List<ScriptHandler.ScriptResult>();
+			scriptHandler.ScriptResultReceived += (sender, args) =>
+			{
+				results.Add(args);
+			};
+
+			var initSucceeded = await scriptHandler.InitScript();
+			Assert.True(initSucceeded);
+
+			await scriptHandler.ExecuteCode<int>("1 + 1");
+
+			Assert.Equal(2, results.Last().ReturnedValue);
+
+			await scriptHandler.ExecuteCode<Func<int, int>>("i => i * 4");
+
+			Assert.Equal(8, ((Func<int, int>)results.Last().ReturnedValue)(2));
+		}
     }
 }
