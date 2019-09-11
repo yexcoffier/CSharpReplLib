@@ -1,7 +1,11 @@
 ﻿using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.Completion;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Scripting;
+using Microsoft.CodeAnalysis.Host.Mef;
 using Microsoft.CodeAnalysis.Scripting;
 using Microsoft.CodeAnalysis.Scripting.Hosting;
+using Microsoft.CodeAnalysis.Text;
 using Nito.AsyncEx;
 using System;
 using System.Collections.Generic;
@@ -19,6 +23,28 @@ namespace CSharpReplLib
 {
     public class ScriptHandler
     {
+        public class TextContainer : SourceTextContainer
+        {
+            SourceText _text;
+            public int Length => _text.Length;
+            public override SourceText CurrentText => _text;
+
+            public override event EventHandler<TextChangeEventArgs> TextChanged;
+
+            public TextContainer(string text)
+            {
+                _text = SourceText.From(text);
+            }
+
+            public void SetText(string text)
+            {
+                var oldText = _text;
+                _text = SourceText.From(text);
+                TextChanged?.Invoke(this, new TextChangeEventArgs(oldText, _text, new TextChangeRange(TextSpan.FromBounds(0, oldText.Length), text.Length)));
+            }
+        }
+
+
         public struct ScriptResult
         {
             public string Result { get; }
@@ -72,9 +98,15 @@ namespace CSharpReplLib
 
         private Func<Func<Task<bool>>, Task<bool>> _executionContext = null;
 
+
+        private TextContainer _textContainer;
+        private Document _completionDocument;
+
         public ScriptHandler(Func<Func<Task<bool>>, Task<bool>> executionContext = null)
         {
             _executionContext = executionContext;
+
+            
         }
 
         public async Task<bool> InitScript(CancellationToken token = default)
@@ -144,8 +176,43 @@ namespace CSharpReplLib
                     _scriptState = null;
                 }
             }
-            
+
+            InitCompletion();
+
             return _scriptState != null;
+        }
+
+        private void InitCompletion()
+        {
+            var host = MefHostServices.Create(MefHostServices.DefaultAssemblies);
+            var workspace = new AdhocWorkspace(host);
+
+            var compilationOptions = new CSharpCompilationOptions(
+               OutputKind.DynamicallyLinkedLibrary,
+               usings: _usings);
+
+            var scriptProjectInfo = ProjectInfo.Create(ProjectId.CreateNewId(), VersionStamp.Create(), "Script", "Script", LanguageNames.CSharp, isSubmission: true)
+                .WithMetadataReferences(_references.Select(assembly => MetadataReference.CreateFromFile(assembly.Location)))
+                .WithCompilationOptions(compilationOptions);
+
+            var scriptProject = workspace.AddProject(scriptProjectInfo);
+
+            _textContainer = new TextContainer(string.Empty);
+            var scriptDocumentInfo = DocumentInfo.Create(
+                DocumentId.CreateNewId(scriptProject.Id), "Script",
+                sourceCodeKind: SourceCodeKind.Script,
+                loader: TextLoader.From(_textContainer, VersionStamp.Create()));
+            _completionDocument = workspace.AddDocument(scriptDocumentInfo);
+        }
+
+        public async Task<CompletionList> GetCompletion(string code, int? carretPosition = null)
+        {
+            var position = carretPosition ?? code.Length;
+
+            _textContainer.SetText(code);
+
+            var completionService = CompletionService.GetService(_completionDocument);
+            return await completionService.GetCompletionsAsync(_completionDocument, position);
         }
 
 		public async Task ResetState()
