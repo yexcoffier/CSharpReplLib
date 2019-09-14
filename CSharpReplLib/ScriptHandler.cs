@@ -25,6 +25,7 @@ namespace CSharpReplLib
     {
         public class TextContainer : SourceTextContainer
         {
+			private bool _isWritingNewLine = false;
             SourceText _text;
             public int Length => _text.Length;
             public override SourceText CurrentText => _text;
@@ -36,12 +37,41 @@ namespace CSharpReplLib
                 _text = SourceText.From(text);
             }
 
-            public void SetText(string text)
+			public void AddLine(string text)
+			{
+				//_isWritingNewLine = false;
+				string oldText = _text.ToString();
+				StringBuilder currentText = new StringBuilder(oldText);
+				if (_isWritingNewLine)
+				{
+					var lastLine = _text.Lines.Last();
+					currentText.Remove(lastLine.Start, lastLine.SpanIncludingLineBreak.End - lastLine.Start);
+				}
+
+				currentText.AppendLine(text);
+				var previousText = _text;
+				_text = SourceText.From(currentText.ToString());
+				TextChanged?.Invoke(this, new TextChangeEventArgs(previousText, _text, _text.GetChangeRanges(previousText)));
+			}
+
+            public void SetCurrentLine(string text)
             {
-                var oldText = _text;
-                _text = SourceText.From(text);
-                TextChanged?.Invoke(this, new TextChangeEventArgs(oldText, _text, new TextChangeRange(TextSpan.FromBounds(0, oldText.Length), text.Length)));
-            }
+				var oldText = _text.ToString();
+				StringBuilder currentText = new StringBuilder(oldText);
+
+				if (_isWritingNewLine)
+				{
+					var lastLine = _text.Lines.Last();
+					currentText.Remove(lastLine.Start, lastLine.SpanIncludingLineBreak.End - lastLine.Start);
+				}
+
+				_isWritingNewLine = true;
+				currentText.Append(text);
+
+				var previousText = _text;
+				_text = SourceText.From(currentText.ToString());
+				TextChanged?.Invoke(this, new TextChangeEventArgs(previousText, _text, _text.GetChangeRanges(previousText)));
+			}
         }
 
 
@@ -98,15 +128,14 @@ namespace CSharpReplLib
 
         private Func<Func<Task<bool>>, Task<bool>> _executionContext = null;
 
-
         private TextContainer _textContainer;
-        private Document _completionDocument;
+		private ProjectInfo _scriptProjectInfo;
+		private MefHostServices _mefHost;
 
-        public ScriptHandler(Func<Func<Task<bool>>, Task<bool>> executionContext = null)
+
+		public ScriptHandler(Func<Func<Task<bool>>, Task<bool>> executionContext = null)
         {
             _executionContext = executionContext;
-
-            
         }
 
         public async Task<bool> InitScript(CancellationToken token = default)
@@ -184,35 +213,55 @@ namespace CSharpReplLib
 
         private void InitCompletion()
         {
-            var host = MefHostServices.Create(MefHostServices.DefaultAssemblies);
-            var workspace = new AdhocWorkspace(host);
-
+			_mefHost = MefHostServices.Create(MefHostServices.DefaultAssemblies);
+			
             var compilationOptions = new CSharpCompilationOptions(
                OutputKind.DynamicallyLinkedLibrary,
                usings: _usings);
 
-            var scriptProjectInfo = ProjectInfo.Create(ProjectId.CreateNewId(), VersionStamp.Create(), "Script", "Script", LanguageNames.CSharp, isSubmission: true)
+            _scriptProjectInfo = ProjectInfo.Create(ProjectId.CreateNewId(), VersionStamp.Create(), "Script", "Script", LanguageNames.CSharp, isSubmission: true)
                 .WithMetadataReferences(_references.Select(assembly => MetadataReference.CreateFromFile(assembly.Location)))
                 .WithCompilationOptions(compilationOptions);
 
-            var scriptProject = workspace.AddProject(scriptProjectInfo);
-
             _textContainer = new TextContainer(string.Empty);
-            var scriptDocumentInfo = DocumentInfo.Create(
-                DocumentId.CreateNewId(scriptProject.Id), "Script",
-                sourceCodeKind: SourceCodeKind.Script,
-                loader: TextLoader.From(_textContainer, VersionStamp.Create()));
-            _completionDocument = workspace.AddDocument(scriptDocumentInfo);
         }
+
+		private Document GetDocumentFromContainer(TextContainer container)
+		{
+			var workspace = new AdhocWorkspace(_mefHost);
+			var project = workspace
+				.AddProject(_scriptProjectInfo);
+
+			var scriptDocumentInfo = DocumentInfo.Create(
+				DocumentId.CreateNewId(project.Id), "Script",
+				sourceCodeKind: SourceCodeKind.Script,
+				loader: TextLoader.From(container, VersionStamp.Create()));
+
+			return workspace.AddDocument(scriptDocumentInfo);
+		}
+
+		private void AddStateToCompletion(string code)
+		{
+			_textContainer.AddLine(code);
+		}
 
         public async Task<CompletionList> GetCompletion(string code, int? carretPosition = null)
         {
-            var position = carretPosition ?? code.Length;
+            _textContainer.SetCurrentLine(code);
 
-            _textContainer.SetText(code);
+			int position;
+			if (carretPosition != null)
+			{
+				string fullCode = _textContainer.CurrentText.ToString();
+				position = fullCode.IndexOf(code) + carretPosition.Value;
+			}
+			else
+				position = _textContainer.CurrentText.Lines.Last().End;
 
-            var completionService = CompletionService.GetService(_completionDocument);
-            return await completionService.GetCompletionsAsync(_completionDocument, position);
+			var document = GetDocumentFromContainer(_textContainer);
+
+			var completionService = CompletionService.GetService(document);
+            return await completionService.GetCompletionsAsync(document, position);
         }
 
 		public async Task ResetState()
@@ -297,6 +346,9 @@ namespace CSharpReplLib
 				Results.Add(scriptResult);
 				ScriptResultReceived?.Invoke(this, scriptResult);
 			}
+
+			if (!isError && !isCancelled)
+				AddStateToCompletion(code);
 
 			return !isError && !isCancelled;
 		}

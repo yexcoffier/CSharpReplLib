@@ -153,5 +153,39 @@ namespace CSharpReplLib.Tests
 
 			Assert.Equal(8, ((Func<int, int>)results.Last().ReturnedValue)(2));
 		}
-    }
+
+		[Fact]
+		public async Task CompletionTest()
+		{
+			var scriptHandler = new ScriptHandler()
+				.AddUsings("System")
+				.AddReferences(typeof(object).Assembly);
+
+			await scriptHandler.InitScript();
+
+			var completion = await scriptHandler.GetCompletion("int.");
+			Assert.NotNull(completion);
+			Assert.Contains("Parse", completion.Items.Select(item => item.DisplayText));
+
+			await scriptHandler.ExecuteCode("string a = string.Empty;");
+
+			completion = await scriptHandler.GetCompletion("a.");
+			Assert.NotNull(completion);
+			Assert.Contains("ToLower", completion.Items.Select(item => item.DisplayText));
+
+			string code =
+@"
+{
+	string b = ""Some multiline code"";
+	int c = b.Length;
+	var d = c.ToString();
+	var e = d.
+}";
+
+			var carretPos = code.IndexOf("d.") + 2;
+			completion = await scriptHandler.GetCompletion(code, carretPos);
+			Assert.NotNull(completion);
+			Assert.Contains("Split", completion.Items.Select(item => item.DisplayText));
+		}
+	}
 }
