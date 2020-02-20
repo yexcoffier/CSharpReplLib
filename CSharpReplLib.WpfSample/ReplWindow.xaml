@@ -149,10 +149,19 @@
         <Border Padding="5"
                 BorderBrush="Gray"
                 BorderThickness="0,1">
-            <Button Padding="5"
-                    HorizontalAlignment="Right"
-                    Click="OpenVsCode_Click"
-                    Content="Open VS Code" />
+            <StackPanel HorizontalAlignment="Right" Orientation="Horizontal">
+                <Button Padding="5"
+                        Margin="5,0"
+                        HorizontalAlignment="Right"
+                        Click="OpenFileVsCode_Click"
+                        Content="Open file with VS Code" />
+                
+                <Button Padding="5"
+                        Margin="5,0"
+                        HorizontalAlignment="Right"
+                        Click="OpenVsCode_Click"
+                        Content="Open VS Code" />
+            </StackPanel>
         </Border>
 
         <ScrollViewer Grid.Row="1"

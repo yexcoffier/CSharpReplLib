@@ -118,7 +118,7 @@ namespace CSharpReplLib
         internal readonly Dictionary<string, string> _nugets = new Dictionary<string, string>();
 
         internal object _lockGlobals = new object();
-        internal readonly Dictionary<string, object> _globals = new Dictionary<string, object>();
+        internal readonly Dictionary<string, (object, Type)> _globals = new Dictionary<string, (object, Type)>();
 
         internal ScriptState<object> _scriptState;
 		private Script<object> _script;
@@ -206,7 +206,8 @@ namespace CSharpReplLib
                 }
             }
 
-            InitCompletion();
+            
+			//InitCompletion();
 
             return _scriptState != null;
         }
@@ -347,8 +348,8 @@ namespace CSharpReplLib
 				ScriptResultReceived?.Invoke(this, scriptResult);
 			}
 
-			if (!isError && !isCancelled)
-				AddStateToCompletion(code);
+			//if (!isError && !isCancelled)
+			//	AddStateToCompletion(code);
 
 			return !isError && !isCancelled;
 		}
@@ -376,7 +377,6 @@ namespace CSharpReplLib
 
 				var resultState = await _scriptState.ContinueWithAsync<T>(code, cancellationToken: token);
 
-				returnedValue = resultState.ReturnValue;
 				result = resultState.ReturnValue?.ToString();
 				if (resultState.ReturnValue != null && resultState.ReturnValue.GetType() == typeof(string))
 					result = $"\"{result}\"";
@@ -419,7 +419,7 @@ namespace CSharpReplLib
 
 		public Assembly[] GetReferences() => _references.ToArrayLocked(_lockReferences);
         public string[] GetUsings() => _usings.ToArrayLocked(_lockUsings);
-        public IReadOnlyDictionary<string, object> GetGlobals() => _globals.ToDictionaryLocked(_lockGlobals);
+        public IReadOnlyDictionary<string, (object value, Type type)> GetGlobals() => _globals.ToDictionaryLocked(_lockGlobals);
 
 		public async Task<IReadOnlyDictionary<string, object>> GetVariables(CancellationToken token = default)
 		{
@@ -519,7 +519,7 @@ namespace CSharpReplLib
         /// <param name="scriptHandler"></param>
         /// <param name="globals"></param>
         /// <returns></returns>
-        public static ScriptHandler AddGlobals(this ScriptHandler scriptHandler, params (string name, object value)[] globals)
+        public static ScriptHandler AddGlobals(this ScriptHandler scriptHandler, params (string name, object value, Type type)[] globals)
         {
             using (scriptHandler._scriptStateLock.Lock())
             {
@@ -530,10 +530,10 @@ namespace CSharpReplLib
             if (globals == null)
                 return scriptHandler;
 
-            foreach (var (name, value) in globals)
+            foreach (var (name, value, type) in globals)
             {
                 if (!scriptHandler._globals.ContainsKey(name))
-                    scriptHandler._globals.Add(name, value);
+                    scriptHandler._globals.Add(name, (value, type));
             }
 
             return scriptHandler;

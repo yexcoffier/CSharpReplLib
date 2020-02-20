@@ -9,7 +9,9 @@
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/yexcoffier/CSharpReplLib</PackageProjectUrl>
     <RepositoryUrl>https://github.com/yexcoffier/CSharpReplLib</RepositoryUrl>
-    <Version>2.1.0-alpha</Version>
+    <Version>2.1.0.4-alpha</Version>
+    <AssemblyVersion>2.1.0.4</AssemblyVersion>
+    <FileVersion>2.1.0.4</FileVersion>
   </PropertyGroup>
 
   <ItemGroup>

@@ -10,6 +10,7 @@ using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
 using CSharpReplLib.VSCode;
+using Microsoft.Win32;
 
 namespace CSharpReplLib.WpfSample
 {
@@ -45,7 +46,7 @@ namespace CSharpReplLib.WpfSample
             _scriptHandler = new ScriptHandler(func => Dispatcher.Invoke(func))
                 .AddGlobals
                 (
-                    ("CurrentWindow", this)
+                    ("CurrentWindow", this, typeof(Window))
                 )
                 .AddReferences
                 (
@@ -68,7 +69,7 @@ namespace CSharpReplLib.WpfSample
             _scriptHandler.ScriptResultReceived += ScriptHandler_ScriptResultReceived;
             _scriptHandler.ScriptExecuted += ScriptHandler_ScriptExecuted;
 
-            Task.Run(() => _scriptHandler.InitScript());
+            //Task.Run(() => _scriptHandler.InitScript());
         }
 
         private async void ScriptTextBox_KeyDown(object sender, KeyEventArgs e)
@@ -153,10 +154,9 @@ namespace CSharpReplLib.WpfSample
         private void OpenVsCode_Click(object sender, RoutedEventArgs e)
         {
             if (_vsCodeWriter == null)
-            {
                 _vsCodeWriter = new VSCodeWriter();
-                _vsCodeWriter.Open(_scriptHandler);
-            }
+
+            _vsCodeWriter.Open(_scriptHandler, executeOnSave: true);
         }
 
         private void AddScriptResult(ScriptHandler.ScriptResult result)
@@ -170,6 +170,26 @@ namespace CSharpReplLib.WpfSample
             _scriptHandler.ScriptExecuted -= ScriptHandler_ScriptExecuted;
 
             _vsCodeWriter?.Dispose();
+        }
+
+        private void OpenFileVsCode_Click(object sender, RoutedEventArgs e)
+        {
+            if (_vsCodeWriter == null)
+            {
+                _vsCodeWriter = new VSCodeWriter();
+            }
+
+            var dialog = new OpenFileDialog
+            {
+                Filter = "cs files (*.cs)|*.cs|All files (*.*)|*.*",
+                FilterIndex = 0
+            };
+
+            if (dialog.ShowDialog(this) ?? false)
+            {
+                var file = dialog.FileName;
+                _vsCodeWriter.Open(_scriptHandler, file, null, false);
+            }
         }
     }
 }
